@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Simulador de Parcelamento</title>
+  <link rel="manifest" href="manifest.json"> 
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h2 {
+      font-size: 20px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    label {
+      font-weight: bold;
+      margin-top: 10px;
+      display: block;
+    }
+    input[type="number"],
+    input[type="checkbox"] {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    input[type="checkbox"] {
+      width: auto;
+    }
+    input[readonly] {
+      background-color: #eee;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      font-size: 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-bottom: 10px;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .resultado {
+      margin-top: 20px;
+      background: #eef6ff;
+      padding: 15px;
+      border-radius: 6px;
+      font-weight: bold;
+    }
+    @media (max-width: 480px) {
+      body {
+        padding: 10px;
+      }
+      .container {
+        padding: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Simulador de Parcelamento</h2>
+
+    <label>Valor total do lote (R$):</label>
+    <input type="number" id="valorTotalLote" step="0.01" oninput="atualizarValorM2()" />
+
+    <label>Metragem do lote (m²):</label>
+    <input type="number" id="metragemLote" step="0.1" oninput="atualizarValorM2()" />
+
+    <label>Valor do metro quadrado (R$):</label>
+    <input type="number" id="valorM2" readonly />
+
+    <label>
+      <input type="checkbox" id="usar10porcento" checked onchange="toggleEntrada()" />
+      Usar entrada de 10%
+    </label>
+
+    <label id="labelEntrada" style="display:none;">Entrada diferenciada (R$):</label>
+    <input type="number" id="entradaDiferenciada" step="0.01" style="display:none;" />
+
+    <label>Quantidade de parcelas:</label>
+    <input type="number" id="parcelas" min="1" required />
+
+    <button onclick="calcular()">Calcular</button>
+    <button onclick="limpar()">Limpar Campos</button>
+
+    <div class="resultado" id="resultado"></div>
+  </div>
+
+  <script>
+    function atualizarValorM2() {
+      const valorTotal = parseFloat(document.getElementById("valorTotalLote").value);
+      const metragem = parseFloat(document.getElementById("metragemLote").value);
+
+      if (!isNaN(valorTotal) && !isNaN(metragem) && metragem > 0) {
+        const valorM2 = valorTotal / metragem;
+        document.getElementById("valorM2").value = valorM2.toFixed(2);
+      } else {
+        document.getElementById("valorM2").value = "";
+      }
+    }
+
+    function toggleEntrada() {
+      const usar10 = document.getElementById("usar10porcento").checked;
+      document.getElementById("labelEntrada").style.display = usar10 ? "none" : "block";
+      document.getElementById("entradaDiferenciada").style.display = usar10 ? "none" : "block";
+    }
+
+    function calcular() {
+      const valorTotal = parseFloat(document.getElementById("valorTotalLote").value);
+      const metragem = parseFloat(document.getElementById("metragemLote").value);
+      const valorM2 = parseFloat(document.getElementById("valorM2").value);
+      const usar10 = document.getElementById("usar10porcento").checked;
+      const parcelas = parseInt(document.getElementById("parcelas").value);
+
+      if (isNaN(valorTotal) || isNaN(metragem) || isNaN(valorM2) || isNaN(parcelas) || valorTotal <= 0 || metragem <= 0 || parcelas <= 0) {
+        alert("Preencha todos os campos com valores válidos.");
+        return;
+      }
+
+      const valorTotalOriginal = valorTotal;
+      let tipo = "";
+      let desconto = 0;
+
+      if (parcelas <= 12) {
+        desconto = valorTotalOriginal * 0.05;
+        tipo = "5% de desconto (sem juros)";
+      } else if (parcelas <= 24) {
+        desconto = valorTotalOriginal * 0.025;
+        tipo = "2,5% de desconto (sem juros)";
+      } else if (parcelas <= 36) {
+        desconto = 0;
+        tipo = "Sem desconto (sem juros)";
+      } else {
+        desconto = 0;
+        tipo = "Sem desconto (com juros de 0,7974% a.m.)";
+      }
+
+      const valorComDesconto = valorTotalOriginal - desconto;
+
+      let entrada = usar10 ? valorComDesconto * 0.10 :
+        parseFloat(document.getElementById("entradaDiferenciada").value);
+
+      if (!usar10 && (isNaN(entrada) || entrada < 0 || entrada > valorComDesconto)) {
+        alert("Digite um valor válido para a entrada.");
+        return;
+      }
+
+      const valorFinanciado = valorComDesconto - entrada;
+      let prestacao = 0;
+      const taxaJuros = 0.007974;
+
+      if (parcelas <= 36) {
+        prestacao = valorFinanciado / parcelas;
+      } else {
+        prestacao = (valorFinanciado * taxaJuros) / (1 - Math.pow(1 + taxaJuros, -parcelas));
+      }
+
+      const resultadoHTML = `
+      
+        <p>💰 <strong>Valor total do lote:</strong> ${valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+        <p>📏 <strong>Metragem:</strong> ${metragem.toFixed(2)} m²</p>
+        <p>🧮 <strong>Valor do m²:</strong> ${valorM2.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+        <p>🔻 <strong>Desconto:</strong> ${desconto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+        <p>📋 <strong>Condição:</strong> ${tipo}</p>
+        <p>🏷️ <strong>Valor com desconto:</strong> ${valorComDesconto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+        <p>💼 <strong>Entrada:</strong> ${entrada.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+        <p>🏦 <strong>Valor a financiar:</strong> ${valorFinanciado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+        <p>📆 <strong>${parcelas}x de:</strong> ${prestacao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+      `;
+
+      document.getElementById("resultado").innerHTML = resultadoHTML;
+    }
+
+    function limpar() {
+      const campos = ["valorTotalLote", "metragemLote", "valorM2", "parcelas", "entradaDiferenciada"];
+      campos.forEach(id => document.getElementById(id).value = "");
+      document.getElementById("usar10porcento").checked = true;
+      toggleEntrada();
+      document.getElementById("resultado").innerHTML = "";
+    }
+
+    // Código para registrar o Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js')
+          .then(registration => {
+            console.log('Service Worker registrado com sucesso:', registration.scope);
+          })
+          .catch(error => {
+            console.error('Falha no registro do Service Worker:', error);
+          });
+      });
+    }
+  </script>
+</body>
+</html>
